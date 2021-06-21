@@ -6,3 +6,10 @@ node_modules
 # CDK asset staging directory
 .cdk.staging
 cdk.out
+
+# normally you would check in the cdk context file,
+# but I don't want to share my account id in a public repo.
+cdk.context.json
+
+# dotenv
+.env

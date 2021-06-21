@@ -11,24 +11,38 @@ Inputs (into code):
 - REGION
 - SERVICE_NAME ( or ARN )
 - CLUSTER_ARN
-- PASSWORD
+// - PASSWORD
 
 */
 "use strict";
 
 const { ECSClient, UpdateServiceCommand } = require( '@aws-sdk/client-ecs');
+const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
 
 //Set the AWS Region
 const REGION = process.env.REGION; 
 
 const SERVICE_NAME = process.env.SERVICE_NAME;  
 const CLUSTER_ARN = process.env.CLUSTER_ARN; 
-const PASSWORD = process.env.PASSWORD;
+// const PASSWORD = process.env.PASSWORD;
+// // MUST BE DEFINED BEFORE RUNNING CDK DEPLOY! Key Value should be: VALHEIM_SERVER_PASS
+// const SECRET_JSON = secretsManager.Secret.fromSecretNameV2(
+//     this,
+//     "predefinedValheimServerPass",
+//     "valheimServerPass"
+//   ).secretValue.toString();
 
-exports.handler = (event, context, callback) => {
+exports.handler = async (event, context, callback) => {
     console.log("request: " + JSON.stringify(event));
     let responseCode = 400;
     let message = "authentication failed";
+
+    const secretsManagerClient = new SecretsManagerClient()
+    const secret = await secretsManagerClient.send(
+        new GetSecretValueCommand({SecretId: "valheimServerPass"}));
+    
+    const parsedSecret = JSON.parse(secret.SecretString);
+    const password = parsedSecret["VALHEIM_SERVER_PASS"]
 
     var params = {
         desiredCount: 1,
@@ -40,24 +54,32 @@ exports.handler = (event, context, callback) => {
         let count = Math.min(Math.max(event.queryStringParameters.desiredCount, 0), 1);
         params.desiredCount = count;
         console.log("changing desiredCount to " + count);
-    }
 
-    if (event.queryStringParameters && event.queryStringParameters.key) {
-        let key = event.queryStringParameters.key;
-        if (key == PASSWORD) {
-            const client = new ECSClient({ region: REGION });
-            console.log("starting service " + JSON.stringify(params));
-            message = "authentication success";
-            responseCode = 200;
-
-
-            const updateCommand = new UpdateServiceCommand(params);
-
-            client.send(updateCommand).then(
-                (data) => {console.log(data);},
-                (err) => {    console.log(err);}
-            );
+        if (event.queryStringParameters && event.queryStringParameters.key) {
+            let key = event.queryStringParameters.key;
+            if (key == password) {
+                const client = new ECSClient({ region: REGION });
+                console.log("starting service " + JSON.stringify(params));
+                message = "authentication success";
+                responseCode = 200;
+    
+                const updateCommand = new UpdateServiceCommand(params);
+    
+                client.send(updateCommand).then(
+                    (data) => {console.log(data);},
+                    (err) => {    console.log(err);}
+                );
+            }
         }
+    } else {
+        const errMsg = 'desiredCount parameter not set.'
+        console.error(errMsg)
+        callback(null, {
+            body: JSON.stringify(errMsg),
+            headers: {},
+            statusCode: 400,
+            "isBase64Encoded": false
+        })
     }
 
     let responseBody = {

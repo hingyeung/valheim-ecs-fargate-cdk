@@ -3,11 +3,29 @@ import * as ec2 from "@aws-cdk/aws-ec2";
 import * as ecs from "@aws-cdk/aws-ecs";
 import * as secretsManager from "@aws-cdk/aws-secretsmanager";
 import * as efs from "@aws-cdk/aws-efs";
-import { validateCfnTag } from "@aws-cdk/core";
-import { runInThisContext } from "vm";
+import { Duration, StackProps, validateCfnTag } from "@aws-cdk/core";
+import * as logs from '@aws-cdk/aws-logs';
+import * as cloudwatch from '@aws-cdk/aws-cloudwatch'
+import { DnsNameUpdaterService } from '../lib/dns-name-updater-service';
+import { HostedZone } from "@aws-cdk/aws-route53";
+
+interface ValheimServerAwsProps extends StackProps {
+  serverName: string;
+  worldName: string;
+  tz: string;
+  cpu: string;
+  memory: string;
+  // valheimServerDnsNameHostedZoneId: string;
+  valheimServerDnsNameHostedZoneName: string;
+  valheimServerDnsName: string;
+};
 
 export class ValheimServerAwsCdkStack extends cdk.Stack {
-  constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
+  private _valheimService: ecs.FargateService;
+  private _fargateCluster: ecs.Cluster;
+  private _noPlayersMetric: cloudwatch.Metric;
+
+  constructor(scope: cdk.Construct, id: string, props: ValheimServerAwsProps) {
     super(scope, id, props);
 
     // MUST BE DEFINED BEFORE RUNNING CDK DEPLOY! Key Value should be: VALHEIM_SERVER_PASS
@@ -28,7 +46,7 @@ export class ValheimServerAwsCdkStack extends cdk.Stack {
       ],
       maxAzs: 1,
     });
-    const fargateCluster = new ecs.Cluster(this, "fargateCluster", {
+    this._fargateCluster = new ecs.Cluster(this, "fargateCluster", {
       vpc: vpc,
     });
 
@@ -55,8 +73,8 @@ export class ValheimServerAwsCdkStack extends cdk.Stack {
       "valheimTaskDefinition",
       {
         compatibility: ecs.Compatibility.FARGATE,
-        cpu: "2048",
-        memoryMiB: "4096",
+        cpu: props.cpu,
+        memoryMiB: props.memory,
         volumes: [serverVolumeConfig],
         networkMode: ecs.NetworkMode.AWS_VPC,
       }
@@ -64,11 +82,14 @@ export class ValheimServerAwsCdkStack extends cdk.Stack {
 
     const container = valheimTaskDefinition.addContainer("valheimContainer", {
       image: ecs.ContainerImage.fromRegistry("lloesche/valheim-server"),
-      logging: ecs.LogDrivers.awsLogs({ streamPrefix: "ValheimServer" }),
+      logging: ecs.LogDrivers.awsLogs({
+        streamPrefix: "ValheimServer",
+        logRetention: logs.RetentionDays.ONE_WEEK
+      }),
       environment: {
-        SERVER_NAME: "VALHEIM-SERVER-AWS-ECS",
+        SERVER_NAME: props.serverName,
         SERVER_PORT: "2456",
-        WORLD_NAME: "VALHEIM-WORLD-FILE",
+        WORLD_NAME: props.worldName,
         SERVER_PUBLIC: "1",
         UPDATE_INTERVAL: "900",
         BACKUPS_INTERVAL: "3600",
@@ -82,6 +103,7 @@ export class ValheimServerAwsCdkStack extends cdk.Stack {
         DNS_1: "10.0.0.2",
         DNS_2: "10.0.0.2",
         STEAMCMD_ARGS: "validate",
+        TZ: props.tz
       },
       secrets: {
         SERVER_PASS: ecs.Secret.fromSecretsManager(
@@ -111,16 +133,44 @@ export class ValheimServerAwsCdkStack extends cdk.Stack {
 
     container.addMountPoints(mountPoint);
 
-    const valheimService = new ecs.FargateService(this, "valheimService", {
-      cluster: fargateCluster,
+    // setup metric filter on log group to detect idle server (no players connected)
+    if (container.logDriverConfig?.options && container.logDriverConfig.options['awslogs-group']) {
+      const logGroup = logs.LogGroup.fromLogGroupName(this,
+        "valheimContainerLogGroup",
+        container.logDriverConfig.options['awslogs-group']);
+
+      // metric
+      const noPlayersMetricFilter = new logs.MetricFilter(this, "playerNumberMetricFilter", {
+        filterPattern: { logPatternString: "No players connected to Valheim server" },
+        metricName: "NoPlayersOnServerEventCount", metricNamespace: "ValheimServer", logGroup,
+        defaultValue: 0, metricValue: "1",
+      })
+      this._noPlayersMetric = noPlayersMetricFilter.metric().with({
+        period: Duration.minutes(15), statistic: "sum"
+      });
+    }
+
+    this._valheimService = new ecs.FargateService(this, "valheimService", {
+      cluster: this._fargateCluster,
       taskDefinition: valheimTaskDefinition,
-      desiredCount: 1,
+      desiredCount: 0,
       assignPublicIp: true,
       platformVersion: ecs.FargatePlatformVersion.VERSION1_4,
     });
 
-    serverFileSystem.connections.allowDefaultPortFrom(valheimService);
-    valheimService.connections.allowFromAnyIpv4(
+    // update valheim server dns name
+    const serverHostedZone = HostedZone.fromLookup(this, 'HostedZone', {
+        domainName: props.valheimServerDnsNameHostedZoneName
+    })
+    new DnsNameUpdaterService(this, "DnsNameUpdaterService", {
+      clusterArn: this._fargateCluster.clusterArn,
+      serviceArn: this._valheimService.serviceArn,
+      valheimServerHostedZone: serverHostedZone,
+      valheimServerDnsName: props.valheimServerDnsName
+    });
+
+    serverFileSystem.connections.allowDefaultPortFrom(this._valheimService);
+    this._valheimService.connections.allowFromAnyIpv4(
       new ec2.Port({
         protocol: ec2.Protocol.UDP,
         stringRepresentation: "valheimPorts",
@@ -130,17 +180,29 @@ export class ValheimServerAwsCdkStack extends cdk.Stack {
     );
 
     new cdk.CfnOutput(this, "serviceName", {
-      value: valheimService.serviceName,
+      value: this._valheimService.serviceName,
       exportName: "fargateServiceName",
     });
 
     new cdk.CfnOutput(this, "clusterArn", {
-      value: fargateCluster.clusterName,
+      value: this._fargateCluster.clusterName,
       exportName:"fargateClusterName"
     });
 
     new cdk.CfnOutput(this, "EFSId", {
       value: serverFileSystem.fileSystemId
     })
+  }
+
+  get valheimService(): ecs.FargateService {
+    return this._valheimService;
+  }
+
+  get fargateCluster(): ecs.Cluster {
+    return this._fargateCluster
+  }
+
+  get noPlayersMetric(): cloudwatch.Metric {
+    return this._noPlayersMetric
   }
 }
