@@ -1,6 +1,6 @@
 import { HostedZone } from '@aws-cdk/aws-route53';
 import * as cdk from '@aws-cdk/core';
-import { Arn, Stack } from '@aws-cdk/core';
+import { Arn } from '@aws-cdk/core';
 import * as lambda_service from '../lib/lambda-ecs-fargate-updownstatus-service';
 
 interface MultiStackProps extends cdk.StackProps {

@@ -3,10 +3,9 @@ import "source-map-support/register";
 import * as cdk from "@aws-cdk/core";
 import { ValheimServerAwsCdkStack } from "../lib/valheim-server-aws-cdk-stack";
 import { LambdaEcsFargateUpdownstatusStack } from '../lib/lambda-ecs-fargate-updownstatus-stack';
-import { ValheimServerMonitoringStack } from "../lib/monitoring-stack";
 import { Arn } from "@aws-cdk/core";
-import {HostedZone} from '@aws-cdk/aws-route53';
 import * as dotenv from 'dotenv';
+import { ValheimStorageBackupStack } from "../lib/storage-backup-stack";
 
 class ValheimServerProps {
     addAppGatewayStartStopStatus: boolean;
@@ -39,6 +38,16 @@ class ValheimServer extends cdk.Construct {
                 region: process.env.CDK_DEFAULT_REGION
             }
         });
+
+        const backupStack = new ValheimStorageBackupStack(app, "ValheimStorageBackupStack", {
+            efsStorage: ecsStack.serverFileSystemerverFileSystem,
+            env: {
+                account: process.env.CDK_DEFAULT_ACCOUNT, 
+                region: process.env.CDK_DEFAULT_REGION
+            }
+        })
+        backupStack.addDependency(ecsStack);
+
         if( props?.addAppGatewayStartStopStatus )
         {
             const lambdaStack = new LambdaEcsFargateUpdownstatusStack(app, 'LambdaEcsFargateUpdownstatusStack', {
@@ -55,17 +64,6 @@ class ValheimServer extends cdk.Construct {
             });
             lambdaStack.addDependency(ecsStack);
         }
-
-        const valheimServerMonitoringStack = new ValheimServerMonitoringStack(app, "ValheimServerMonitoring", {
-            serviceArn: ecsStack.valheimService.serviceArn,
-            clusterArn: ecsStack.fargateCluster.clusterArn,
-            noPlayersMetric: ecsStack.noPlayersMetric,
-            env: {
-                account: process.env.CDK_DEFAULT_ACCOUNT, 
-                region: process.env.CDK_DEFAULT_REGION
-            }
-        })
-        valheimServerMonitoringStack.addDependency(ecsStack)
     }
 }
 

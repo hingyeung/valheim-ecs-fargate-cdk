@@ -3,13 +3,14 @@ import * as apigateway from "@aws-cdk/aws-apigateway";
 import * as lambda from "@aws-cdk/aws-lambda";
 import * as lambdanodejs from "@aws-cdk/aws-lambda-nodejs";
 import { Policy, PolicyStatement, PolicyProps, Effect } from "@aws-cdk/aws-iam"
-import { Stack, Arn } from "@aws-cdk/core";
+import { Arn } from "@aws-cdk/core";
 import { EndpointType } from "@aws-cdk/aws-apigateway";
 import * as secretsManager from "@aws-cdk/aws-secretsmanager";
 import * as route53 from "@aws-cdk/aws-route53"
 import * as targets from "@aws-cdk/aws-route53-targets"
 import { Certificate } from "@aws-cdk/aws-certificatemanager"
 import { IHostedZone } from "@aws-cdk/aws-route53";
+import * as logs from '@aws-cdk/aws-logs';
 
 export interface LambdaEcsFargateUpDownServiceOptions {
   region: string;
@@ -32,7 +33,7 @@ export class LambdaEcsFargateUpDownService extends core.Construct {
     );
 
     const serverStatusHandler = new lambdanodejs.NodejsFunction(this, "serverStatus", {
-      runtime: lambda.Runtime.NODEJS_10_X, // So we can use async 
+      runtime: lambda.Runtime.NODEJS_14_X, // So we can use async 
       entry: 'resources/serverstatus.ts',
       handler: "handler",
       bundling: {
@@ -42,7 +43,8 @@ export class LambdaEcsFargateUpDownService extends core.Construct {
         REGION: props.region,
         SERVICE_ARN: props.serviceArn as string,
         CLUSTER_ARN: props.clusterArn as string
-      }
+      },
+      logRetention: logs.RetentionDays.ONE_WEEK
     });
 
     const ecsStatusPolicy = new Policy(this, "ecsStatusPolicy", {
@@ -72,7 +74,8 @@ export class LambdaEcsFargateUpDownService extends core.Construct {
         SERVICE_NAME: props.serviceArn as string,
         CLUSTER_ARN: props.clusterArn as string,
         // PASSWORD: props.startStopPassword,
-      }
+      },
+      logRetention: logs.RetentionDays.ONE_WEEK
     });
     const ecsStartStopPolicy = new Policy(this, "ecsStartStopPolicy", {
       statements: [

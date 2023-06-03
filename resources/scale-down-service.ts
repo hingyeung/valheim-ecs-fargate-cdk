@@ -1,11 +1,10 @@
 "use strict";
 
 import { ECSClient, UpdateServiceCommand } from '@aws-sdk/client-ecs';
-import { print } from 'util';
 
 const REGION = process.env.REGION;
 
-exports.handler = async (event, context, callback) => {
+exports.handler = async (event: any, context: any, callback: any) => {
   console.log(process.env.CLUSTER_ARN)
   console.log(process.env.SERVICE_ARN)
   const client = new ECSClient({ region: REGION }),

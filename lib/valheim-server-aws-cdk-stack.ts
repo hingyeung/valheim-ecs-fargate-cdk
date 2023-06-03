@@ -8,6 +8,12 @@ import * as logs from '@aws-cdk/aws-logs';
 import * as cloudwatch from '@aws-cdk/aws-cloudwatch'
 import { DnsNameUpdaterService } from '../lib/dns-name-updater-service';
 import { HostedZone } from "@aws-cdk/aws-route53";
+import { PlayerCountMetricService } from "./player-count-metric-service";
+import { AutoScaleDownService } from "./auto-scale-down-service";
+
+const VALHEIM_SERVER_METRIC_NAMESPACE = "ValheimServer"
+const PLAYER_COUNT_METRIC_NAME = "PlayerCount"
+const NO_PLAYER_ON_SERVER_METRIC_NAME = "NoPlayersOnServerEventCount"
 
 interface ValheimServerAwsProps extends StackProps {
   serverName: string;
@@ -24,6 +30,8 @@ export class ValheimServerAwsCdkStack extends cdk.Stack {
   private _valheimService: ecs.FargateService;
   private _fargateCluster: ecs.Cluster;
   private _noPlayersMetric: cloudwatch.Metric;
+  private _playerCountMetric: cloudwatch.Metric;
+  private _serverFileSystem: efs.FileSystem;
 
   constructor(scope: cdk.Construct, id: string, props: ValheimServerAwsProps) {
     super(scope, id, props);
@@ -50,7 +58,7 @@ export class ValheimServerAwsCdkStack extends cdk.Stack {
       vpc: vpc,
     });
 
-    const serverFileSystem = new efs.FileSystem(this, "valheimServerStorage", {
+    this._serverFileSystem = new efs.FileSystem(this, "valheimServerStorage", {
       vpc: vpc,
       encrypted: true,
     });
@@ -58,7 +66,7 @@ export class ValheimServerAwsCdkStack extends cdk.Stack {
     const serverVolumeConfig: ecs.Volume = {
       name: "valheimServerVolume",
       efsVolumeConfiguration: {
-        fileSystemId: serverFileSystem.fileSystemId,
+        fileSystemId: this._serverFileSystem.fileSystemId,
       },
     };
 
@@ -142,7 +150,7 @@ export class ValheimServerAwsCdkStack extends cdk.Stack {
       // metric
       const noPlayersMetricFilter = new logs.MetricFilter(this, "playerNumberMetricFilter", {
         filterPattern: { logPatternString: "No players connected to Valheim server" },
-        metricName: "NoPlayersOnServerEventCount", metricNamespace: "ValheimServer", logGroup,
+        metricName: NO_PLAYER_ON_SERVER_METRIC_NAME, metricNamespace: VALHEIM_SERVER_METRIC_NAMESPACE, logGroup,
         defaultValue: 0, metricValue: "1",
       })
       this._noPlayersMetric = noPlayersMetricFilter.metric().with({
@@ -169,7 +177,25 @@ export class ValheimServerAwsCdkStack extends cdk.Stack {
       valheimServerDnsName: props.valheimServerDnsName
     });
 
-    serverFileSystem.connections.allowDefaultPortFrom(this._valheimService);
+    this._playerCountMetric = new cloudwatch.Metric({
+      namespace: VALHEIM_SERVER_METRIC_NAMESPACE,
+      metricName: PLAYER_COUNT_METRIC_NAME
+    })
+
+    const playerCountMetricService = new PlayerCountMetricService(this, "PlayerCountMetricService", {
+      fargateService: this._valheimService,
+      region: cdk.Stack.of(this).region,
+      playerCountMetric: this._playerCountMetric,
+      serviceDNSName: props.valheimServerDnsName
+    })
+
+    new AutoScaleDownService(this, "AutoScaleDownService", {
+      fargateService: this._valheimService,
+      playerCountMetric: this._playerCountMetric,
+      region: cdk.Stack.of(this).region
+    })
+
+    this._serverFileSystem.connections.allowDefaultPortFrom(this._valheimService);
     this._valheimService.connections.allowFromAnyIpv4(
       new ec2.Port({
         protocol: ec2.Protocol.UDP,
@@ -190,7 +216,7 @@ export class ValheimServerAwsCdkStack extends cdk.Stack {
     });
 
     new cdk.CfnOutput(this, "EFSId", {
-      value: serverFileSystem.fileSystemId
+      value: this._serverFileSystem.fileSystemId
     })
   }
 
@@ -204,5 +230,13 @@ export class ValheimServerAwsCdkStack extends cdk.Stack {
 
   get noPlayersMetric(): cloudwatch.Metric {
     return this._noPlayersMetric
+  }
+
+  get playerCountMetric(): cloudwatch.Metric {
+    return this._playerCountMetric
+  }
+
+  get serverFileSystemerverFileSystem(): efs.FileSystem {
+    return this._serverFileSystem
   }
 }

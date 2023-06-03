@@ -53,7 +53,7 @@ export class DnsNameUpdaterService extends core.Construct {
     });
 
     const serviceReadyHandlerFunction = new lambdanodejs.NodejsFunction(this, "ValheimServiceReadyHandler", {
-      runtime: lambda.Runtime.NODEJS_10_X, // So we can use async 
+      runtime: lambda.Runtime.NODEJS_14_X, // So we can use async 
       entry: 'resources/updatedns.ts',
       handler: "handler",
       logRetention: logs.RetentionDays.ONE_WEEK,
