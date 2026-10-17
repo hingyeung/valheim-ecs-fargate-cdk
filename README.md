@@ -60,6 +60,30 @@ npx cdk deploy --all
 
 6. enjoy accidentally chopping trees onto your friends powered by AWS!
 
+## Starting, Stopping and Checking the Server
+
+If you enabled the optional App Gateway endpoints (step 5), you can control the server with plain HTTP requests. Replace `<api-domain>` with the `startStopApiCustomDomain` you set in [bin/valheim-server-aws-cdk.ts](bin/valheim-server-aws-cdk.ts). Replace `<password>` with the value of `VALHEIM_SERVER_PASS` in the `valheimServerPass` secret in AWS Secrets Manager.
+
+### Start the server
+
+```
+curl "https://<api-domain>/startstop?desiredCount=1&key=<password>"
+```
+
+### Stop the server
+
+```
+curl "https://<api-domain>/startstop?desiredCount=0&key=<password>"
+```
+
+A successful call returns `{"message":"authentication success"}`. A wrong or missing `key` returns `{"message":"authentication failed"}` with status 400. A missing `desiredCount` also returns status 400. The server takes a few minutes to start after the call returns.
+
+### Check the server status
+
+```
+curl "https://<api-domain>/serverstatus"
+```
+
 ## Configuration
 
 Coming soon
