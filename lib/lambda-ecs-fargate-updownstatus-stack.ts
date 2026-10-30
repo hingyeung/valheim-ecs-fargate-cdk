@@ -1,6 +1,7 @@
-import { HostedZone } from '@aws-cdk/aws-route53';
-import * as cdk from '@aws-cdk/core';
-import { Arn } from '@aws-cdk/core';
+import { Construct } from "constructs";
+import { HostedZone } from 'aws-cdk-lib/aws-route53';
+import * as cdk from 'aws-cdk-lib';
+import { Arn } from 'aws-cdk-lib';
 import * as lambda_service from '../lib/lambda-ecs-fargate-updownstatus-service';
 
 interface MultiStackProps extends cdk.StackProps {
@@ -12,7 +13,7 @@ interface MultiStackProps extends cdk.StackProps {
 }
 
 export class LambdaEcsFargateUpdownstatusStack extends cdk.Stack {
-  constructor(scope: cdk.Construct, id: string, props: MultiStackProps) {
+  constructor(scope: Construct, id: string, props: MultiStackProps) {
     super(scope, id, props);
 
     const apiHostedZone = HostedZone.fromLookup(this, 'HostedZone', {

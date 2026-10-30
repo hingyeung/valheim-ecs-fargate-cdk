@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import "source-map-support/register";
-import * as cdk from "@aws-cdk/core";
+import { Construct } from "constructs";
+import * as cdk from "aws-cdk-lib";
 import { ValheimServerAwsCdkStack } from "../lib/valheim-server-aws-cdk-stack";
 import { LambdaEcsFargateUpdownstatusStack } from '../lib/lambda-ecs-fargate-updownstatus-stack';
-import { Arn } from "@aws-cdk/core";
+import { Arn } from "aws-cdk-lib";
 import * as dotenv from 'dotenv';
 import { ValheimStorageBackupStack } from "../lib/storage-backup-stack";
 
@@ -21,8 +22,8 @@ class ValheimServerProps {
     valheimServerDnsName: string;
 }
 
-class ValheimServer extends cdk.Construct {
-    constructor(scope: cdk.Construct, id: string, props: ValheimServerProps) {
+class ValheimServer extends Construct {
+    constructor(scope: Construct, id: string, props: ValheimServerProps) {
         super(scope, id);
         const ecsStack = new ValheimServerAwsCdkStack(app, "ValheimServerAwsCdkStack", {
             serverName: props.serverName,

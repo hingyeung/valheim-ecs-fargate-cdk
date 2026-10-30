@@ -1,13 +1,14 @@
-import * as cdk from "@aws-cdk/core";
-import * as ec2 from "@aws-cdk/aws-ec2";
-import * as ecs from "@aws-cdk/aws-ecs";
-import * as secretsManager from "@aws-cdk/aws-secretsmanager";
-import * as efs from "@aws-cdk/aws-efs";
-import { Duration, StackProps, validateCfnTag } from "@aws-cdk/core";
-import * as logs from '@aws-cdk/aws-logs';
-import * as cloudwatch from '@aws-cdk/aws-cloudwatch'
+import { Construct } from "constructs";
+import * as cdk from "aws-cdk-lib";
+import * as ec2 from "aws-cdk-lib/aws-ec2";
+import * as ecs from "aws-cdk-lib/aws-ecs";
+import * as secretsManager from "aws-cdk-lib/aws-secretsmanager";
+import * as efs from "aws-cdk-lib/aws-efs";
+import { Duration, StackProps, validateCfnTag } from "aws-cdk-lib";
+import * as logs from 'aws-cdk-lib/aws-logs';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch'
 import { DnsNameUpdaterService } from '../lib/dns-name-updater-service';
-import { HostedZone } from "@aws-cdk/aws-route53";
+import { HostedZone } from "aws-cdk-lib/aws-route53";
 import { PlayerCountMetricService } from "./player-count-metric-service";
 import { AutoScaleDownService } from "./auto-scale-down-service";
 
@@ -33,7 +34,7 @@ export class ValheimServerAwsCdkStack extends cdk.Stack {
   private _playerCountMetric: cloudwatch.Metric;
   private _serverFileSystem: efs.FileSystem;
 
-  constructor(scope: cdk.Construct, id: string, props: ValheimServerAwsProps) {
+  constructor(scope: Construct, id: string, props: ValheimServerAwsProps) {
     super(scope, id, props);
 
     // MUST BE DEFINED BEFORE RUNNING CDK DEPLOY! Key Value should be: VALHEIM_SERVER_PASS
