@@ -1,12 +1,13 @@
-import { Construct, Arn } from "@aws-cdk/core";
-import * as cloudwatch from '@aws-cdk/aws-cloudwatch'
-import * as lambda from "@aws-cdk/aws-lambda";
-import { NodejsFunction } from "@aws-cdk/aws-lambda-nodejs";
-import * as logs from '@aws-cdk/aws-logs';
-import * as events from "@aws-cdk/aws-events";
-import * as targets from "@aws-cdk/aws-events-targets";
-import * as ecs from "@aws-cdk/aws-ecs";
-import * as iam from '@aws-cdk/aws-iam';
+import { Construct } from "constructs";
+import { Arn } from "aws-cdk-lib";
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch'
+import * as lambda from "aws-cdk-lib/aws-lambda";
+import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
+import * as logs from 'aws-cdk-lib/aws-logs';
+import * as events from "aws-cdk-lib/aws-events";
+import * as targets from "aws-cdk-lib/aws-events-targets";
+import * as ecs from "aws-cdk-lib/aws-ecs";
+import * as iam from 'aws-cdk-lib/aws-iam';
 
 
 export interface PlayerCounteMetricServiceProps {
@@ -42,7 +43,7 @@ export class PlayerCountMetricService extends Construct {
     lambdaRole.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'));
 
     const playerCountMetricFunction = new NodejsFunction(this, 'PlayerCountMetricFunction', {
-      runtime: lambda.Runtime.NODEJS_14_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       entry: 'resources/emit-player-count-metric.ts',
       logRetention: logs.RetentionDays.ONE_WEEK,
       bundling: {

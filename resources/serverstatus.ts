@@ -54,7 +54,7 @@ async function getIPFunction() {
   try {
 
     var ListTasksParams = {
-      servicesName: SERVICE_ARN,
+      serviceName: SERVICE_ARN,
       cluster: CLUSTER_ARN,
       desiredStatus: "RUNNING"
     };
@@ -74,22 +74,30 @@ async function getIPFunction() {
 
       const describeTasks = await client.send(describeTaskCommand);
       console.log(describeTasks);
-      var networkInterfaceId = describeTasks.tasks[0].attachments[0].details.find(x => x.name === "networkInterfaceId").value;
 
-      console.log("found network interfaceid " + networkInterfaceId);
+      // ListTasks is eventually consistent, so a task that just stopped can still be listed.
+      const runningTask = describeTasks.tasks.find(x => x.lastStatus === "RUNNING" && x.desiredStatus === "RUNNING");
 
-      var describeNetworkInterfacesParams = {
-        NetworkInterfaceIds: [networkInterfaceId]
-      };
+      if (runningTask) {
+        var networkInterfaceId = runningTask.attachments[0].details.find(x => x.name === "networkInterfaceId").value;
 
-      const describeNetworkInterfacesCommand = new DescribeNetworkInterfacesCommand(ListTasksParams);
+        console.log("found network interfaceid " + networkInterfaceId);
 
-      const networkInterfaces = await ec2Client.send(describeNetworkInterfacesCommand);
-      console.log(networkInterfaces);
-      var publicIp = networkInterfaces.NetworkInterfaces.find(x => x.Association != undefined).Association.PublicIp;
-      console.log("found public IP " + publicIp);
-      statusResults.running = true;
-      statusResults.ip = publicIp + ":2456";
+        var describeNetworkInterfacesParams = {
+          NetworkInterfaceIds: [networkInterfaceId]
+        };
+
+        const describeNetworkInterfacesCommand = new DescribeNetworkInterfacesCommand(describeNetworkInterfacesParams);
+
+        const networkInterfaces = await ec2Client.send(describeNetworkInterfacesCommand);
+        console.log(networkInterfaces);
+        var association = networkInterfaces.NetworkInterfaces[0].Association;
+        if (association && association.PublicIp) {
+          console.log("found public IP " + association.PublicIp);
+          statusResults.running = true;
+          statusResults.ip = association.PublicIp + ":2456";
+        }
+      }
     }
 
   } catch (error) {

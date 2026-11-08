@@ -1,16 +1,17 @@
-import * as core from "@aws-cdk/core";
-import * as apigateway from "@aws-cdk/aws-apigateway";
-import * as lambda from "@aws-cdk/aws-lambda";
-import * as lambdanodejs from "@aws-cdk/aws-lambda-nodejs";
-import { Policy, PolicyStatement, PolicyProps, Effect } from "@aws-cdk/aws-iam"
-import { Arn } from "@aws-cdk/core";
-import { EndpointType } from "@aws-cdk/aws-apigateway";
-import * as secretsManager from "@aws-cdk/aws-secretsmanager";
-import * as route53 from "@aws-cdk/aws-route53"
-import * as targets from "@aws-cdk/aws-route53-targets"
-import { Certificate } from "@aws-cdk/aws-certificatemanager"
-import { IHostedZone } from "@aws-cdk/aws-route53";
-import * as logs from '@aws-cdk/aws-logs';
+import { Construct } from "constructs";
+import * as core from "aws-cdk-lib";
+import * as apigateway from "aws-cdk-lib/aws-apigateway";
+import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as lambdanodejs from "aws-cdk-lib/aws-lambda-nodejs";
+import { Policy, PolicyStatement, PolicyProps, Effect } from "aws-cdk-lib/aws-iam"
+import { Arn } from "aws-cdk-lib";
+import { EndpointType } from "aws-cdk-lib/aws-apigateway";
+import * as secretsManager from "aws-cdk-lib/aws-secretsmanager";
+import * as route53 from "aws-cdk-lib/aws-route53"
+import * as targets from "aws-cdk-lib/aws-route53-targets"
+import { Certificate } from "aws-cdk-lib/aws-certificatemanager"
+import { IHostedZone } from "aws-cdk-lib/aws-route53";
+import * as logs from 'aws-cdk-lib/aws-logs';
 
 export interface LambdaEcsFargateUpDownServiceOptions {
   region: string;
@@ -21,8 +22,8 @@ export interface LambdaEcsFargateUpDownServiceOptions {
   customDomainHostedZone: IHostedZone
 }
 
-export class LambdaEcsFargateUpDownService extends core.Construct {
-  constructor(scope: core.Construct, id: string, props: LambdaEcsFargateUpDownServiceOptions) {
+export class LambdaEcsFargateUpDownService extends Construct {
+  constructor(scope: Construct, id: string, props: LambdaEcsFargateUpDownServiceOptions) {
     super(scope, id);
 
     // MUST BE DEFINED BEFORE RUNNING CDK DEPLOY! Key Value should be: VALHEIM_SERVER_PASS
@@ -33,7 +34,7 @@ export class LambdaEcsFargateUpDownService extends core.Construct {
     );
 
     const serverStatusHandler = new lambdanodejs.NodejsFunction(this, "serverStatus", {
-      runtime: lambda.Runtime.NODEJS_14_X, // So we can use async 
+      runtime: lambda.Runtime.NODEJS_22_X, // So we can use async 
       entry: 'resources/serverstatus.ts',
       handler: "handler",
       bundling: {
@@ -63,7 +64,7 @@ export class LambdaEcsFargateUpDownService extends core.Construct {
     serverStatusHandler.role?.attachInlinePolicy(ecsStatusPolicy);
 
     const startStopHandler = new lambdanodejs.NodejsFunction(this, "startstop", {
-      runtime: lambda.Runtime.NODEJS_14_X, // So we can use async 
+      runtime: lambda.Runtime.NODEJS_22_X, // So we can use async 
       entry: 'resources/startstopserver.ts',
       handler: "handler",
       bundling: {

@@ -1,7 +1,8 @@
-import * as cdk from "@aws-cdk/core";
-import * as efs from "@aws-cdk/aws-efs";
+import { Construct } from "constructs";
+import * as cdk from "aws-cdk-lib";
+import * as efs from "aws-cdk-lib/aws-efs";
 import { ValheimStorageBackupService } from "./efs-backup-service";
-import * as backup from "@aws-cdk/aws-backup";
+import * as backup from "aws-cdk-lib/aws-backup";
 
 interface ValheimStorageBackupStackProps extends cdk.StackProps {
   efsStorage: efs.FileSystem;
@@ -9,7 +10,7 @@ interface ValheimStorageBackupStackProps extends cdk.StackProps {
 
 export class ValheimStorageBackupStack extends cdk.Stack {
   constructor(
-    scope: cdk.Construct,
+    scope: Construct,
     id: string,
     props: ValheimStorageBackupStackProps
   ) {
